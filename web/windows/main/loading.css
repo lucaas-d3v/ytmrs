@@ -1,8 +1,3 @@
-#app {
-  display: flex;
-  flex-direction: column;
-}
-
 .ytmview-loading-container {
   flex: 1;
   position: relative;

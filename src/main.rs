@@ -30,11 +30,16 @@ pub const APP_ID: &str = "app.ytmrs.YtmRs";
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
+    // glibc creates one malloc arena per thread (up to 8x cores): cap it to keep RSS low
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    unsafe {
+        libc::mallopt(libc::M_ARENA_MAX, 2);
+    }
     logging::init();
     services::watchdog::install_panic_hook();
     log::info!("Application launched");
 
-    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().thread_name("ytmrs-worker").build().expect("failed to create the async runtime");
+    let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).max_blocking_threads(8).enable_all().thread_name("ytmrs-worker").build().expect("failed to create the async runtime");
 
     let mut builder = EventLoopBuilder::<UserEvent>::with_user_event();
     #[cfg(target_os = "linux")]

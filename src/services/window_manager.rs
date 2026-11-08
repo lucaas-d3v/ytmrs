@@ -139,6 +139,9 @@ pub struct AppWindow {
     always_on_top: bool,
     last_progress: Option<(u64, bool, bool)>,
     pub modal_parent: Option<String>,
+    /// Window page stacked above its views: covers them when true, titlebar only otherwise
+    webview_on_top: bool,
+    webview_overlay: bool,
 }
 
 pub struct AppView {
@@ -193,6 +196,18 @@ impl AppWindowManager {
         for w in &mut self.windows {
             w.requested_closure = true;
         }
+    }
+
+    /// An alive app page (not the YTM view) whose web process new app pages join
+    #[cfg(target_os = "linux")]
+    fn app_process_root(&self) -> Option<webkit2gtk::WebView> {
+        use wry::WebViewExtUnix;
+        self.windows
+            .iter()
+            .filter_map(|w| w.webview.as_ref())
+            .chain(self.views.iter().filter(|v| v.receive_broadcasts).map(|v| &v.webview))
+            .next()
+            .map(|wv| wv.webview.webview())
     }
 
     pub fn webview_owner(&self, id: u64) -> Option<WebviewOwner> {
@@ -401,8 +416,8 @@ pub(crate) fn build_webview(app: &mut App, parent: &AppWindow, spec: WebviewSpec
     let mut context = WebContext::new(spec.data_dir.clone());
     let main = app.main.clone();
 
+    // The URL is loaded after the platform settings are applied (see below)
     let mut builder = WebViewBuilder::new_with_web_context(&mut context)
-        .with_url(&spec.url)
         .with_bounds(bounds)
         .with_transparent(spec.transparent)
         .with_background_color((0, 0, 0, 255))
@@ -469,17 +484,24 @@ pub(crate) fn build_webview(app: &mut App, parent: &AppWindow, spec: WebviewSpec
     #[cfg(target_os = "linux")]
     let webview = {
         use wry::WebViewBuilderExtUnix;
+        // App pages share a single WebKit web process + network process (memory)
+        if spec.data_dir.is_none() {
+            if let Some(root) = app.window_manager.app_process_root() {
+                builder = builder.with_related_view(root);
+            }
+        }
         builder.build_gtk(&parent.fixed)?
     };
     #[cfg(not(target_os = "linux"))]
     let webview = builder.build_as_child(&parent.window)?;
 
     #[cfg(target_os = "linux")]
-    crate::platform::linux::configure_webview(&webview, app.config_store.get_bool("general.disableHardwareAcceleration"));
+    crate::platform::linux::configure_webview(&webview, app.config_store.get_bool("general.disableHardwareAcceleration"), spec.data_dir.is_none());
 
     if std::env::var("YTMD_OPEN_DEVTOOLS").is_ok() {
         webview.open_devtools();
     }
+    webview.load_url(&spec.url)?;
 
     app.window_manager.owners.insert(id, owner);
     Ok(AppWebview { id, webview, _context: context })
@@ -513,7 +535,14 @@ pub fn layout(app: &App, name: &str) {
     let Some(w) = app.window_manager.get(name) else { return };
     let (width, height) = logical_size(&w.window);
     if let Some(wv) = &w.webview {
-        apply_bounds(w, &wv.webview, rect(0.0, 0.0, width, height));
+        let page_height = if !w.webview_on_top || w.webview_overlay {
+            height
+        } else if w.fullscreen {
+            1.0
+        } else {
+            crate::services::ytm_view_manager::TITLEBAR_HEIGHT
+        };
+        apply_bounds(w, &wv.webview, rect(0.0, 0.0, width, page_height));
     }
     for v in app.window_manager.views.iter().filter(|v| v.parent == name) {
         let offset = if w.fullscreen { 0.0 } else { v.offset_top };
@@ -593,6 +622,8 @@ pub fn create_window(app: &mut App, opts: AppWindowOptions) -> anyhow::Result<()
         always_on_top: opts.always_on_top,
         last_progress: None,
         modal_parent: if opts.modal { opts.parent.clone() } else { None },
+        webview_on_top: false,
+        webview_overlay: false,
     };
 
     let mut init = vec![crate::assets::web_text(opts.preload)];
@@ -672,6 +703,48 @@ pub fn create_view(app: &mut App, parent: &str, opts: ViewOptions) -> anyhow::Re
     log::debug!("AppView '{}' attached to parent {}", opts.name, parent_name);
     layout(app, &parent_name);
     Ok(())
+}
+
+/// Stack the window page above its views (Linux z-order is insertion order in the GtkFixed)
+pub fn raise_window_webview(app: &mut App, name: &str) {
+    let Some(w) = app.window_manager.get_mut(name) else { return };
+    w.webview_on_top = true;
+    #[cfg(target_os = "linux")]
+    if let Some(wv) = &w.webview {
+        use gtk::prelude::*;
+        use wry::WebViewExtUnix;
+        let widget = wv.webview.webview();
+        w.fixed.remove(&widget);
+        w.fixed.put(&widget, 0, 0);
+    }
+    layout(app, name);
+}
+
+pub fn set_webview_overlay(app: &mut App, name: &str, overlay: bool) {
+    match app.window_manager.get_mut(name) {
+        Some(w) if w.webview_overlay != overlay => w.webview_overlay = overlay,
+        _ => return,
+    }
+    layout(app, name);
+}
+
+/// Destroy a view and its webview (frees its web process)
+pub fn destroy_view(app: &mut App, view: &str) {
+    let Some(index) = app.window_manager.views.iter().position(|v| v.name == view) else { return };
+    let v = app.window_manager.views.remove(index);
+    app.window_manager.owners.remove(&v.webview.id);
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::*;
+        use wry::WebViewExtUnix;
+        let widget = v.webview.webview.webview();
+        if let Some(w) = app.window_manager.get(&v.parent) {
+            w.fixed.remove(&widget);
+        }
+        unsafe { widget.destroy() };
+    }
+    drop(v);
+    log::debug!("AppView '{view}' destroyed");
 }
 
 /// AppView.show()/hide() (setVisible)

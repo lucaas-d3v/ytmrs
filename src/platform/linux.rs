@@ -65,12 +65,40 @@ pub fn set_as_default_protocol_client(scheme: &str) {
     let _ = std::process::Command::new("xdg-settings").args(["set", "default-url-scheme-handler", scheme, &desktop_file_name()]).status();
 }
 
-pub fn configure_webview(webview: &wry::WebView, disable_hardware_acceleration: bool) {
-    if disable_hardware_acceleration {
-        if let Some(settings) = WebViewExt::settings(&webview.webview()) {
-            settings.set_hardware_acceleration_policy(webkit2gtk::HardwareAccelerationPolicy::Never);
+pub fn configure_webview(webview: &wry::WebView, disable_hardware_acceleration: bool, app_page: bool) {
+    use webkit2gtk::WebContextExt;
+    let wv = webview.webview();
+    if let Some(settings) = WebViewExt::settings(&wv) {
+        // App pages are static UI: no GPU compositing. YTM composites only when needed (video).
+        let policy = if disable_hardware_acceleration || app_page {
+            webkit2gtk::HardwareAccelerationPolicy::Never
+        } else {
+            webkit2gtk::HardwareAccelerationPolicy::OnDemand
+        };
+        settings.set_hardware_acceleration_policy(policy);
+        // Back/forward cache keeps whole pages alive: not needed for a single page app
+        settings.set_enable_page_cache(false);
+        if app_page {
+            settings.set_enable_webgl(false);
         }
     }
+    if app_page {
+        if let Some(context) = wv.context() {
+            context.set_cache_model(webkit2gtk::CacheModel::DocumentViewer);
+        }
+    }
+}
+
+/// Make WebKit release memory (caches, JS heap) early; must run before any web process starts
+pub fn configure_memory_pressure() {
+    let mut settings = webkit2gtk::MemoryPressureSettings::new();
+    settings.set_memory_limit(512);
+    settings.set_conservative_threshold(0.33);
+    settings.set_strict_threshold(0.5);
+    // never kill the web process because of memory usage
+    settings.set_kill_threshold(0.0);
+    settings.set_poll_interval(5.0);
+    webkit2gtk::WebsiteDataManager::set_memory_pressure_settings(&mut settings);
 }
 
 /// WebKit signal wiring for the YouTube Music view (navigation policy, load errors,

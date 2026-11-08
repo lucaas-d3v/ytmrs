@@ -78,6 +78,10 @@
     loadError = error;
     render();
   });
+  ytmd.memoryStore.get("ytmViewUnresponsive").then(value => {
+    unresponsive = value ?? false;
+    render();
+  });
   ytmd.memoryStore.onStateChanged(newState => {
     unresponsive = newState.ytmViewUnresponsive ?? false;
     render();

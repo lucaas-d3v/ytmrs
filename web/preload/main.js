@@ -22,5 +22,12 @@
     ytmViewRecreate: () => ipc.send("ytmView:recreate"),
     restartApplicationForUpdate: () => ipc.send("app:restartApplicationForUpdate"),
     memoryStore,
+    // windows/main/preload.ts (the loading overlay now lives in this page)
+    ytmViewStatusChanged: callback => ipc.on("ytmView:statusChanged", callback),
+    ytmViewLoadError: callback => ipc.on("ytmView:loadError", callback),
+    ytmViewReload: () => ipc.send("ytmView:reload"),
+    appViewHiding: callback => ipc.on("appView:hide", callback),
+    appViewShowing: callback => ipc.on("appView:show", callback),
+    appViewHide: () => ipc.send("appView:hide")
   });
 })();

@@ -5548,6 +5548,7 @@ dependencies = [
  "hostname",
  "http",
  "keyring",
+ "libc",
  "log",
  "md-5",
  "mdns-sd",

@@ -1,6 +1,5 @@
 //! Port of `src/main/index.ts`: application startup, windows, tray and IPC glue.
 
-use std::time::Duration;
 
 use serde_json::{json, Value};
 
@@ -30,18 +29,24 @@ pub fn pre_ready(app: &mut App) {
 
 pub fn on_ready(app: &mut App) {
     log::info!("Application ready");
+    #[cfg(target_os = "linux")]
+    crate::platform::linux::configure_memory_pressure();
     crate::services::watchdog::set_app_ready();
     // At this stage the next lifecycle is Initialized
     run_next_lifecycle(app);
     install_shutdown_handler(app);
+    schedule_heap_trim(app);
 
     //#region Updater Check
-    let mut opts = AppWindowOptions::new("Updater", "updater", "preload/updater.js", 256.0, 320.0);
-    opts.min_size = Some((256.0, 320.0));
-    opts.resizable = false;
-    opts.title = "YtmRs - Updater".into();
-    if let Err(err) = wm::create_window(app, opts) {
-        log::error!("Failed to create updater window: {err:?}");
+    // Only shown when updates can actually be checked (saves a web process otherwise)
+    if !app.auto_updater.is_disabled() {
+        let mut opts = AppWindowOptions::new("Updater", "updater", "preload/updater.js", 256.0, 320.0);
+        opts.min_size = Some((256.0, 320.0));
+        opts.resizable = false;
+        opts.title = "YtmRs - Updater".into();
+        if let Err(err) = wm::create_window(app, opts) {
+            log::error!("Failed to create updater window: {err:?}");
+        }
     }
 
     if !app.auto_updater.is_disabled() {
@@ -58,9 +63,6 @@ pub fn on_ready(app: &mut App) {
         app.auto_updater.not_available.once(|app, _| continue_startup(app));
         app.auto_updater.error.once(|app, _| continue_startup(app));
         auto_updater::check_for_updates(app);
-    } else if !crate::paths::is_packaged() {
-        // Better visual feedback for the updater window when in development mode
-        app.set_timeout(Duration::from_millis(1500), continue_startup);
     } else {
         continue_startup(app);
     }
@@ -182,6 +184,14 @@ fn create_main_ui(app: &mut App) {
             let _ = v.webview.webview.load_url("https://music.youtube.com/");
         }
     });
+    ipc.on("appView:hide", |app, _, _| {
+        log::debug!("AppView 'Main' hidden");
+        wm::set_webview_overlay(app, "Main", false);
+    });
+    ipc.on("__ytmd:domReady", |app, _, _| {
+        let status = app.ytm_view_manager.status();
+        app.window_manager.send("Main", "ytmView:statusChanged", &[Value::from(status as i64)]);
+    });
     ipc.on("ytmView:reload", |app, _, _| {
         if let Some(v) = app.window_manager.view(ytm_view_manager::VIEW) {
             let _ = v.webview.webview.reload();
@@ -206,7 +216,7 @@ fn create_main_ui(app: &mut App) {
     // Attach events for the ytmviewmanager
     app.ytm_view_manager.status_changed.on(|app, _| {
         let status = app.ytm_view_manager.status();
-        app.window_manager.send_view(MAIN_VIEW, "ytmView:statusChanged", &[Value::from(status as i64)]);
+        app.window_manager.send(MAIN_VIEW, "ytmView:statusChanged", &[Value::from(status as i64)]);
         if status == YTMViewStatus::Ready {
             main_view_hide(app);
             if app.ytm_view_manager.has_error() {
@@ -221,7 +231,7 @@ fn create_main_ui(app: &mut App) {
     app.ytm_view_manager.responsive.on(|app, _| main_view_hide(app));
     app.ytm_view_manager.load_errored.on(|app, _| {
         let error = app.ytm_view_manager.load_error.clone().map(|(code, description)| json!({ "code": code, "description": description })).unwrap_or(Value::Null);
-        app.window_manager.send_view(MAIN_VIEW, "ytmView:loadError", &[error]);
+        app.window_manager.send(MAIN_VIEW, "ytmView:loadError", &[error]);
     });
 
     // Initially create the YTM view and attach it
@@ -229,36 +239,9 @@ fn create_main_ui(app: &mut App) {
         log::error!("Failed to create the YTM view: {err:?}");
     }
 
-    // The "Main" view: loading / unresponsive overlay stacked above the YTM view
-    let main_view = wm::ViewOptions {
-        name: MAIN_VIEW.into(),
-        url: crate::assets::app_url("windows/main-view/index.html"),
-        preload: Some("preload/main-view.js"),
-        receive_broadcasts: true,
-        init_scripts: vec![],
-        data_dir: None,
-        autoplay: false,
-        offset_top: ytm_view_manager::TITLEBAR_HEIGHT,
-        nav: NavPolicy::AppOnly,
-        new_window: NewWindowPolicy::Deny,
-        obscured: false,
-    };
-    if let Err(err) = wm::create_view(app, "Main", main_view) {
-        log::error!("Failed to create the main view: {err:?}");
-    }
-    if let Some(v) = app.window_manager.view_mut(MAIN_VIEW) {
-        v.ipc.on("appView:hide", |app, _, _| wm::set_view_visible(app, MAIN_VIEW, false));
-        v.ipc.on("ytmView:reload", |app, _, _| {
-            if let Some(v) = app.window_manager.view(ytm_view_manager::VIEW) {
-                let _ = v.webview.webview.reload();
-            }
-        });
-        v.ipc.on("__ytmd:domReady", |app, _, _| {
-            let status = app.ytm_view_manager.status();
-            app.window_manager.send_view(MAIN_VIEW, "ytmView:statusChanged", &[Value::from(status as i64)]);
-        });
-    }
-
+    // Main window page stays above the YTM view (titlebar + loading overlay)
+    wm::raise_window_webview(app, "Main");
+    wm::set_webview_overlay(app, "Main", true);
     let after_ready = |app: &mut App| {
         crate::services::integration_manager::app_ready(app);
         maybe_show_changelog(app);
@@ -270,14 +253,16 @@ fn create_main_ui(app: &mut App) {
 
 const MAIN_VIEW: &str = "Main";
 
+/// The "Main" view (loading / unresponsive overlay) is rendered by the main window page,
+/// which is stacked above the YTM view and expands over it while visible.
 fn main_view_show(app: &mut App) {
-    app.window_manager.send_view(MAIN_VIEW, "appView:show", &[]);
-    wm::set_view_visible(app, MAIN_VIEW, true);
+    app.window_manager.send(MAIN_VIEW, "appView:show", &[]);
+    wm::set_webview_overlay(app, "Main", true);
 }
 
 /// mainView.hide(true): the page fades out and replies with appView:hide
 fn main_view_hide(app: &mut App) {
-    app.window_manager.send_view(MAIN_VIEW, "appView:hide", &[]);
+    app.window_manager.send(MAIN_VIEW, "appView:hide", &[]);
 }
 
 fn show_hook_error(app: &mut App) {
@@ -439,6 +424,19 @@ pub fn second_instance(app: &mut App, command_line: Vec<String>) {
         let last = last.clone();
         crate::services::protocol_manager::handle_ytmd_protocol(app, &last);
     }
+}
+
+/// Return freed heap pages to the OS periodically (startup and page loads churn a lot)
+fn schedule_heap_trim(app: &mut App) {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    app.set_timeout(std::time::Duration::from_secs(60), |app| {
+        unsafe {
+            libc::malloc_trim(0);
+        }
+        schedule_heap_trim(app);
+    });
+    #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+    let _ = app;
 }
 
 fn install_shutdown_handler(app: &App) {
