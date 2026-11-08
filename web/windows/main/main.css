@@ -1,0 +1,12 @@
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+#keyboard-focus-zero,
+#keyboard-focus {
+  width: 0;
+  height: 0;
+  outline: none;
+}
+

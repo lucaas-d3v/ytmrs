@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>YtmRs - Settings</title>
+    <link rel="stylesheet" href="/shared/app.css" />
+    <link rel="stylesheet" href="/shared/titlebar.css" />
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <div id="app" class="container">
+      <div id="titlebar-container"></div>
+      <div class="settings settings-container">
+        <div class="content-container">
+          <ul class="sidebar">
+            <li data-tab="1"><span class="material-symbols-outlined">settings_applications</span>General</li>
+            <li data-tab="2"><span class="material-symbols-outlined">brush</span>Appearance</li>
+            <li data-tab="3"><span class="material-symbols-outlined">music_note</span>Playback</li>
+            <li data-tab="4"><span class="material-symbols-outlined">wifi_tethering</span>Integrations</li>
+            <li data-tab="5"><span class="material-symbols-outlined">keyboard</span>Shortcuts</li>
+            <span class="push"></span>
+            <li data-tab="99"><span class="material-symbols-outlined">info</span>About</li>
+          </ul>
+          <div class="content" id="content">
+            <div id="restart-banner" class="restart-banner" hidden>
+              <p class="message"><span class="material-symbols-outlined">autorenew</span> Restart app to apply changes</p>
+              <button class="restart-button" id="restart-button">Restart</button>
+            </div>
+            <div class="tab" data-tab-content="1"></div>
+            <div class="tab" data-tab-content="2"></div>
+            <div class="tab" data-tab-content="3"></div>
+            <div class="tab" data-tab-content="4"></div>
+            <div class="tab shortcuts-tab" data-tab-content="5"></div>
+            <div class="tab about-tab" data-tab-content="99">
+              <img class="icon" src="/assets/icons/ytmrs.png" draggable="false" />
+              <h2 class="app-name">YtmRs</h2>
+              <p class="made-by">Rust port of YTMDesktop (YTMDesktop Team)</p>
+              <div id="updater-enabled">
+                <button id="check-updates" class="update-check-button"><span class="material-symbols-outlined">update</span>Check for updates</button>
+                <button id="restart-update" class="update-button" hidden><span class="material-symbols-outlined">upgrade</span>Restart to update</button>
+                <p id="checking" class="updating" hidden><span class="material-symbols-outlined">progress_activity</span>Checking for updates...</p>
+                <p id="downloading" class="updating" hidden><span class="material-symbols-outlined">progress_activity</span>Downloading update...</p>
+                <p id="no-update" class="no-update" hidden>Update not available</p>
+              </div>
+              <div id="updater-disabled" hidden>
+                <button disabled class="update-check-button"><span class="material-symbols-outlined">update</span>Check for updates</button>
+                <p class="no-auto-updater">Auto updater disabled</p>
+                <p class="no-auto-updater">Platform or build does not support automatic updates</p>
+              </div>
+              <span class="version-info">
+                <p id="version"></p>
+                <p id="branch"></p>
+                <p id="commit"></p>
+                <div class="divider"></div>
+                <p id="webview"></p>
+                <p>Runtime: Rust (tao/wry)</p>
+              </span>
+              <div class="links">
+                <a href="https://github.com/ytmdesktop/ytmdesktop" target="_blank">GitHub</a>
+                <a href="https://ytmdesktop.github.io/" target="_blank">Website</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="/shared/titlebar.js"></script>
+    <script src="./settings.js"></script>
+  </body>
+</html>

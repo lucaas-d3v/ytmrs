@@ -1,0 +1,68 @@
+@font-face {
+  font-family: "Open Sans";
+  src: url("/assets/fonts/OpenSans-VariableFont.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Work Sans";
+  src: url("/assets/fonts/WorkSans-VariableFont.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/assets/fonts/material-symbols-outlined.woff2") format("woff2");
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "liga";
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  color: #eeeeee;
+  font-family: "Work Sans", sans-serif;
+  overflow: hidden;
+  background-color: #000000;
+}
+
+button,
+input,
+select {
+  color: #eeeeee;
+  font-family: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.fade {
+  transition: opacity 0.25s ease;
+}
+
+.fade.faded {
+  opacity: 0;
+}

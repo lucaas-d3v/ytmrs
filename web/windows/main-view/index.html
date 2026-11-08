@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>YtmRs</title>
+    <link rel="stylesheet" href="/shared/app.css" />
+    <link rel="stylesheet" href="./main-view.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Port of components/YTMViewLoading.vue (the "Main" AppView) -->
+      <div id="ytmview-loading-container" class="ytmview-loading-container fade">
+        <div id="ytmview-loading" class="ytmview-loading fade">
+          <img class="logo" src="/assets/icons/ytmrs.png" draggable="false" />
+          <div class="music-loader">
+            <div class="loader-line"></div><div class="loader-line"></div><div class="loader-line"></div><div class="loader-line"></div>
+            <div class="loader-line"></div><div class="loader-line"></div><div class="loader-line"></div><div class="loader-line"></div>
+          </div>
+          <p id="loading-status" class="ytmview-loading-status"></p>
+          <div id="load-error-container" class="load-error-container" hidden>
+            <p id="load-error-text" class="ytmview-loading-status error"></p>
+            <button id="refresh-ytm" class="refresh-ytm-button">Refresh YouTube Music</button>
+          </div>
+          <div id="loading-timeout" class="ytmview-loading-timeout" hidden>
+            <span>YouTube Music is taking longer than usual to load</span>
+          </div>
+        </div>
+        <div id="ytmview-unresponsive" class="ytmview-unresponsive fade" hidden></div>
+      </div>
+    </div>
+    <script src="./main-view.js"></script>
+  </body>
+</html>
