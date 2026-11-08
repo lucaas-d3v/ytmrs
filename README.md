@@ -2,6 +2,15 @@
 
 YouTube Music desktop app written in Rust: a 1:1 port of [YTMDesktop](https://github.com/ytmdesktop/ytmdesktop) (Electron) that uses the operating system's native webview (WebKitGTK on Linux, WebView2 on Windows, WKWebView on macOS) instead of bundling Chromium. The original source lives at <https://github.com/ytmdesktop/ytmdesktop>.
 
+## Install (Linux x86_64)
+
+Download from [Releases](https://github.com/lucaas-d3v/ytmrs/releases):
+
+- **Debian/Ubuntu:** `sudo apt install ./ytmrs_*_amd64.deb`
+- **Any distro:** extract `ytmrs-*-linux-x86_64.tar.gz` and run `./install.sh` (installs to `~/.local`; use `sudo PREFIX=/usr/local ./install.sh` for system wide)
+
+Runtime requirements: WebKitGTK 4.1, GTK 3 and GStreamer plugins (good, bad, libav) for audio playback.
+
 ## Build
 
 ```sh

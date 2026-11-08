@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=YtmRs
+GenericName=YouTube Music
+Comment=YouTube Music desktop app written in Rust
+Exec=ytmrs %U
+Icon=ytmrs
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+MimeType=x-scheme-handler/ytmrs;
+StartupWMClass=app.ytmrs.YtmRs
+StartupNotify=true

@@ -2,7 +2,7 @@
 name = "ytmrs"
 version = "2.1.0"
 edition = "2021"
-rust-version = "1.90"
+rust-version = "1.94"
 description = "YtmRs - YouTube Music desktop app written in Rust (port of YTMDesktop)"
 license = "GPL-3.0-only"
 authors = ["NovusTheory <novustheory@gmail.com>"]
@@ -95,3 +95,24 @@ objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
 lto = "thin"
 codegen-units = 4
 strip = true
+
+[package.metadata.deb]
+name = "ytmrs"
+maintainer = "lucaas-d3v"
+section = "sound"
+priority = "optional"
+extended-description = "YouTube Music desktop app written in Rust (port of YTMDesktop) using the system WebKitGTK webview."
+depends = "$auto"
+recommends = "gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav"
+assets = [
+  ["target/release/ytmrs", "usr/bin/", "755"],
+  ["packaging/linux/ytmrs.desktop", "usr/share/applications/app.ytmrs.YtmRs.desktop", "644"],
+  ["assets/icons/hicolor/16x16.png", "usr/share/icons/hicolor/16x16/apps/ytmrs.png", "644"],
+  ["assets/icons/hicolor/32x32.png", "usr/share/icons/hicolor/32x32/apps/ytmrs.png", "644"],
+  ["assets/icons/hicolor/48x48.png", "usr/share/icons/hicolor/48x48/apps/ytmrs.png", "644"],
+  ["assets/icons/hicolor/64x64.png", "usr/share/icons/hicolor/64x64/apps/ytmrs.png", "644"],
+  ["assets/icons/hicolor/128x128.png", "usr/share/icons/hicolor/128x128/apps/ytmrs.png", "644"],
+  ["assets/icons/hicolor/256x256.png", "usr/share/icons/hicolor/256x256/apps/ytmrs.png", "644"],
+  ["assets/icons/hicolor/512x512.png", "usr/share/icons/hicolor/512x512/apps/ytmrs.png", "644"],
+  ["README.md", "usr/share/doc/ytmrs/README.md", "644"],
+]
