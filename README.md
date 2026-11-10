@@ -1,6 +1,6 @@
 # YtmRs
 
-YouTube Music desktop app written in Rust: a 1:1 port of [YTMDesktop](https://github.com/ytmdesktop/ytmdesktop) (Electron) that uses the operating system's native webview (WebKitGTK on Linux, WebView2 on Windows, WKWebView on macOS) instead of bundling Chromium. The original source lives at <https://github.com/ytmdesktop/ytmdesktop>.
+YouTube Music desktop app for Linux written in Rust, based on [YTMDesktop](https://github.com/ytmdesktop/ytmdesktop) (Electron). The interface is native GTK; the only web content is the YouTube Music page, running in the system WebKitGTK instead of a bundled Chromium.
 
 ## Install (Linux x86_64)
 
@@ -18,31 +18,27 @@ cargo build --release          # binary: target/release/ytmrs
 cargo test                     # unit tests
 ```
 
-Linux needs: `webkit2gtk-4.1`, `gtk+-3.0`, `libsoup-3.0`, `dbus-1`, `openssl`, GStreamer plugins (good/bad/libav, for YouTube Music audio/video) and a StatusNotifier host for the tray.
+Needs: `webkit2gtk-4.1`, `gtk+-3.0`, `libsoup-3.0`, `dbus-1`, `openssl`, GStreamer plugins (good/bad/libav) and a StatusNotifier host for the tray.
 
-Optional build-time variables (same as the original): `LASTFM_API_KEY`, `LASTFM_API_SECRET`, `YTMD_UPDATE_FEED_OWNER`, `YTMD_UPDATE_FEED_REPOSITORY`.
+Optional build-time variables: `LASTFM_API_KEY`, `LASTFM_API_SECRET`.
 
 Runtime variables: `YTMD_USER_DATA_DIR` (alternative data dir), `YTMD_LOG_TRACE=1`, `YTMD_OPEN_DEVTOOLS=1`, `YTMD_SKIP_SYSTEM_INTEGRATION=1` (skips `ytmrs://` protocol registration).
 
-## Architecture (original → port)
+## Memory
 
-| Original (Electron/TS) | Port (Rust) |
-|---|---|
-| `ServiceHost` / `ServiceCollection` | `services/service_host.rs` (same dependency ordering and lifecycle) |
-| `conf` ConfigStore + migrations | `services/config_store.rs` (same `config.json` schema, semver migrations, file watch) |
-| `BrowserWindow` / `WebContentsView` | `services/window_manager.rs` (tao windows + wry child webviews) |
-| preload + `contextBridge` | `web/shared/bridge.js` + `web/preload/*.js` (same `window.ytmd` APIs) |
-| Vue windows | `web/windows/*` (plain HTML/CSS/JS, embedded in the binary) |
-| MessagePort ProtectedAPI | `services/protected_api.rs` (same op codes over the IPC bridge) |
-| fastify + socket.io companion server | axum + socketioxide, own rate limiter, mdns-sd, local IPC server |
-| xosms | MPRIS2 over zbus (Linux) |
-| Electron `safeStorage` | AES-256-GCM, key in the OS keyring |
-| Tray, globalShortcut, dialogs | tray-icon (StatusNotifier), global-hotkey, GTK dialogs / rfd |
+Almost all memory is the YouTube Music page itself. Low memory mode (Settings > General, on by default) disables the JavaScript JIT of the web process: about 445 MiB in total instead of about 630 MiB, for roughly twice the web process CPU time during playback.
+
+## Layout
+
+- `src/ui/`: native GTK windows (main window, settings, miniplayer, lyrics, companion authorization, changelog)
+- `src/services/`: port of the original services (config store, player state, YouTube Music view, shortcuts, protocol)
+- `src/integrations/`: companion server, Discord presence, Last.fm, MPRIS, notifications, custom CSS, volume ratio
+- `web/ytm/scripts.js`: the single script injected into YouTube Music (player hooks and remote control)
 
 Compatibility identifiers kept on purpose so existing companion apps work: API `/api/v1`, port 9863, socket `ytmdesktop-ipc`, mDNS `_ytmdesktop._tcp`.
 
 ## Known differences
 
-- Windows/macOS code paths are written but were not compiled or tested; Windows thumbnail toolbar buttons and media service (SMTC) are not implemented yet; macOS has no enhanced media service (the original disables it there too).
-- "Speaker fill" has no WebKitGTK equivalent; spellcheck suggestions are not in the context menu.
-- On Linux, frameless window resizing is done through edge handles injected into the webviews.
+- Linux only; there is no auto updater.
+- "Speaker fill" has no WebKitGTK equivalent; global shortcuts need X11.
+- The lyrics window highlights the current line only when YouTube provides timings.

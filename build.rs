@@ -22,8 +22,6 @@ fn main() {
         println!("cargo:rustc-env=YTMD_GIT_COMMIT_HASH={hash}");
     }
     println!("cargo:rerun-if-changed=.git/HEAD");
-    println!("cargo:rerun-if-env-changed=YTMD_UPDATE_FEED_OWNER");
-    println!("cargo:rerun-if-env-changed=YTMD_UPDATE_FEED_REPOSITORY");
     println!("cargo:rerun-if-env-changed=LASTFM_API_KEY");
     println!("cargo:rerun-if-env-changed=LASTFM_API_SECRET");
 }

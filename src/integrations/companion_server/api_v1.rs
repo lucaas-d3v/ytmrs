@@ -407,14 +407,7 @@ impl Drop for AuthWindowGuard {
     fn drop(&mut self) {
         self.counter.fetch_sub(1, Ordering::SeqCst);
         let window = self.window.clone();
-        self.main.run(move |app| {
-            if app.window_manager.has_window(&window) {
-                if let Some(w) = app.window_manager.get_mut(&window) {
-                    w.requested_closure = true;
-                }
-                crate::services::window_manager::destroy_window(app, &window);
-            }
-        });
+        self.main.run(move |app| crate::ui::companion_auth::close(app, &window));
     }
 }
 
@@ -470,39 +463,7 @@ async fn request_token(State(state): State<ServerState>, ConnectInfo(addr): Conn
 }
 
 fn open_authorization_window(app: &mut crate::app::App, name: &str, app_name: &str, code: &str, tx: tokio::sync::oneshot::Sender<bool>) -> bool {
-    use crate::services::window_manager::{self as wm, AppWindowOptions, NewWindowPolicy};
-    let mut opts = AppWindowOptions::new(name, "authorize-companion", "preload/authorize-companion.js", 640.0, 480.0);
-    opts.title = "YtmRs - Companion Authorization".into();
-    opts.minimizable = false;
-    opts.maximizable = false;
-    opts.resizable = false;
-    opts.new_window = NewWindowPolicy::Deny;
-    opts.extra_init.push(format!("window.__ytmdAuthorization = Object.freeze({});", json!({ "appName": app_name, "code": code })));
-    if let Err(err) = wm::create_window(app, opts) {
-        log::error!("Failed to create authorization window: {err:?}");
-        return false;
-    }
-    let sender = std::rc::Rc::new(std::cell::RefCell::new(Some(tx)));
-    let w = app.window_manager.get_mut(name).unwrap();
-    let s = sender.clone();
-    w.ipc.on("companionAuthorization:result", move |_, _, args| {
-        if let Some(tx) = s.borrow_mut().take() {
-            let _ = tx.send(args.first().and_then(|v| v.as_bool()).unwrap_or(false));
-        }
-    });
-    let s = sender;
-    w.events.close.on(move |_, _| {
-        if let Some(tx) = s.borrow_mut().take() {
-            let _ = tx.send(false);
-        }
-    });
-    let window_name = name.to_string();
-    app.window_manager.when_ready(name, move |app| {
-        if let Some(w) = app.window_manager.get(&window_name) {
-            w.window.set_focus();
-            w.window.request_user_attention(Some(tao::window::UserAttentionType::Informational));
-        }
-    });
+    crate::ui::companion_auth::open(app, name, app_name, code, tx);
     true
 }
 

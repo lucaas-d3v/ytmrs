@@ -95,16 +95,6 @@ pub fn enable_error(app: &mut App, name: &str, err: &anyhow::Error) {
     );
 }
 
-/// Called by integrations whose asynchronous startup failed
-pub fn report_async_enable_error(app: &mut App, name: &'static str, err: anyhow::Error) {
-    if let Some(index) = app.integration_manager.integrations.iter().position(|i| i.name == name) {
-        if app.integration_manager.is_enabled(name) {
-            disable(app, index);
-        }
-    }
-    enable_error(app, name, &err);
-}
-
 fn reconcile_integration_enable_state(app: &mut App, states: Option<(&Value, &Value)>) {
     for index in 0..app.integration_manager.integrations.len() {
         let (name, prop, deps) = {

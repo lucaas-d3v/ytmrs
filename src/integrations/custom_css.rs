@@ -82,20 +82,10 @@ fn inject_css(app: &mut App) {
 }
 
 fn apply(app: &mut App, css: &str) {
-    let Some(view) = app.window_manager.view(ytm_view_manager::VIEW) else { return };
-    #[cfg(target_os = "linux")]
-    {
-        let sheet = crate::platform::linux::insert_user_css(&view.webview.webview, css);
-        app.integrations.custom_css.sheet = sheet;
+    if let Some(old) = app.integrations.custom_css.sheet.take() {
+        ytm_view_manager::remove_css(app, &old);
     }
-    #[cfg(not(target_os = "linux"))]
-    {
-        let js = format!(
-            "(function(){{let s=document.getElementById('ytmd-custom-css');if(!s){{s=document.createElement('style');s.id='ytmd-custom-css';document.documentElement.appendChild(s);}}s.textContent={};}})()",
-            Value::from(css)
-        );
-        let _ = view.webview.webview.evaluate_script(&js);
-    }
+    app.integrations.custom_css.sheet = ytm_view_manager::insert_css(app, css);
 }
 
 fn remove_css(app: &mut App) {
@@ -103,13 +93,9 @@ fn remove_css(app: &mut App) {
         return;
     }
     app.integrations.custom_css.injected = false;
-    let Some(view) = app.window_manager.view(ytm_view_manager::VIEW) else { return };
-    #[cfg(target_os = "linux")]
     if let Some(sheet) = app.integrations.custom_css.sheet.take() {
-        crate::platform::linux::remove_user_css(&view.webview.webview, &sheet);
+        ytm_view_manager::remove_css(app, &sheet);
     }
-    #[cfg(not(target_os = "linux"))]
-    let _ = view.webview.webview.evaluate_script("document.getElementById('ytmd-custom-css')?.remove()");
 }
 
 fn watch_css_file(app: &mut App, path: PathBuf) {

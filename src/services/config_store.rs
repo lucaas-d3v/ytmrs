@@ -9,7 +9,6 @@ use serde_json::{Map, Value};
 use crate::app::App;
 use crate::emit;
 use crate::events::{Emitter, ListenerId};
-use crate::ipc::IpcReply;
 
 const MIGRATION_KEY: &str = "__internal__.migrations.version";
 
@@ -234,14 +233,6 @@ pub fn set(app: &mut App, key: &str, value: Value) {
     commit(app, old);
 }
 
-pub fn reset(app: &mut App, key: &str) {
-    let defaults = crate::shared::store_schema::defaults(crate::APP_VERSION);
-    let old = app.config_store.store.clone();
-    let v = get_path(&defaults, key).cloned().unwrap_or(Value::Null);
-    set_path(&mut app.config_store.store, key, v);
-    commit(app, old);
-}
-
 fn commit(app: &mut App, old: Value) {
     if old == app.config_store.store {
         return;
@@ -261,8 +252,13 @@ fn load_file(path: &PathBuf) -> Value {
     }
 }
 
+/// Location of the persistent config file
+pub fn config_path() -> PathBuf {
+    crate::paths::get().user_data.join("config.json")
+}
+
 pub fn on_pre_initialized(app: &mut App) {
-    let path = crate::paths::get().user_data.join("config.json");
+    let path = config_path();
     let mut store = load_file(&path);
     if !store.is_object() {
         store = Value::Object(Map::new());
@@ -330,26 +326,8 @@ pub fn on_initialized(app: &mut App) {
     app.config_store.initialized = true;
 
     app.config_store.on_did_any_change(|app, change| {
-        let args = [change.new.clone(), change.old.clone()];
-        app.window_manager.broadcast_all("configStore:stateChanged", &args);
         reconcile_config(app, &change.new);
-    });
-
-    app.ipc.handle("configStore:get", |app, _e, args| {
-        let key = args.first().and_then(|v| v.as_str()).unwrap_or("");
-        IpcReply::Ok(app.config_store.get(key))
-    });
-    app.ipc.on("configStore:set", |app, _e, args| {
-        if let Some(key) = args.first().and_then(|v| v.as_str()) {
-            let key = key.to_string();
-            set(app, &key, args.get(1).cloned().unwrap_or(Value::Null));
-        }
-    });
-    app.ipc.on("configStore:reset", |app, _e, args| {
-        if let Some(key) = args.first().and_then(|v| v.as_str()) {
-            let key = key.to_string();
-            reset(app, &key);
-        }
+        crate::ui::settings::sync(app);
     });
 
     log::info!("ConfigStore initialized");

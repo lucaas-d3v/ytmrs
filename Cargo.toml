@@ -1,6 +1,6 @@
 [package]
 name = "ytmrs"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 rust-version = "1.94"
 description = "YtmRs - YouTube Music desktop app written in Rust (port of YTMDesktop)"
@@ -14,20 +14,18 @@ name = "ytmrs"
 path = "src/main.rs"
 
 [dependencies]
-# Windowing / webview (native system webview: WebKitGTK, WebView2, WKWebView)
-tao = "0.37"
-wry = { version = "0.57", features = ["devtools"] }
+# Native UI: GTK 3 (the toolkit WebKitGTK already lives in). The only web content is YouTube Music.
+gtk = "0.18"
+webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
 tray-icon = { version = "0.26", default-features = false, features = ["ksni"] }
-muda = "0.21"
 global-hotkey = "0.9"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+libc = "0.2"
 open = "5"
-dpi = "0.1"
 
 # Async / networking
-tokio = { version = "1", features = ["full"] }
-futures-util = "0.3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "signal", "fs"] }
 axum = "0.8"
-tower = "0.5"
 tower-http = { version = "0.6", features = ["cors"] }
 socketioxide = { version = "0.18", features = ["extensions"] }
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "json", "form", "http2", "charset"] }
@@ -53,44 +51,9 @@ anyhow = "1"
 parking_lot = "0.12"
 notify = "8"
 notify-rust = "4"
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
-rust-embed = { version = "8", features = ["mime-guess"] }
-mime_guess = "2"
-comrak = { version = "0.59", default-features = false }
-png = "0.18"
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+rust-embed = { version = "8", features = ["include-exclude"] }
 dirs = "7"
-self-replace = "1"
-http = "1"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-libc = "0.2"
-gtk = "0.18"
-webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
-zbus = { version = "5", default-features = false, features = ["tokio"] }
-
-[target.'cfg(not(target_os = "linux"))'.dependencies]
-rfd = { version = "0.17", default-features = false, features = ["common-controls-v6"] }
-arboard = "3"
-
-[target.'cfg(windows)'.dependencies]
-windows = { version = "0.62", features = [
-  "Foundation",
-  "Media",
-  "Storage_Streams",
-  "Win32_Foundation",
-  "Win32_System_Com",
-  "Win32_System_WinRT",
-  "Win32_UI_WindowsAndMessaging",
-  "Win32_UI_Shell",
-  "Win32_UI_Input_KeyboardAndMouse",
-  "Win32_Graphics_Gdi",
-] }
-winreg = "0.55"
-
-[target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSResponder", "NSView"] }
-objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
 
 [profile.release]
 lto = "thin"
@@ -102,7 +65,7 @@ name = "ytmrs"
 maintainer = "lucaas-d3v"
 section = "sound"
 priority = "optional"
-extended-description = "YouTube Music desktop app written in Rust (port of YTMDesktop) using the system WebKitGTK webview."
+extended-description = "YouTube Music desktop app written in Rust (port of YTMDesktop). Native GTK interface, YouTube Music runs in the system WebKitGTK."
 depends = "$auto"
 recommends = "gstreamer1.0-plugins-good, gstreamer1.0-plugins-bad, gstreamer1.0-libav"
 assets = [

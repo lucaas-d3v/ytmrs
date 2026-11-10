@@ -88,21 +88,7 @@ pub fn on_initialized(app: &mut App) {
 
 fn state_changed(app: &mut App) {
     let state = app.player_state_store.get_state();
-    if app.window_manager.has_window("Miniplayer") {
-        let v = serde_json::to_value(&state).unwrap_or(Value::Null);
-        app.window_manager.broadcast_window("Miniplayer", "playerStateStore:stateChanged", &[v]);
-    }
-
-    match (&state.video_details, state.has_full_metadata) {
-        (Some(d), true) => {
-            app.window_manager.set_title("Main", &format!("{} - {} | YtmRs", d.title(), d.author()));
-            app.window_manager.set_title("Miniplayer", &format!("{} - {} | YtmRs - Miniplayer", d.title(), d.author()));
-        }
-        _ => {
-            app.window_manager.set_title("Main", "YtmRs");
-            app.window_manager.set_title("Miniplayer", "YtmRs - Miniplayer");
-        }
-    }
+    crate::ui::on_player_state(app, &state);
 
     crate::services::state_manager::update_state(
         app,

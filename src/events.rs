@@ -10,7 +10,7 @@ pub type ListenerId = u64;
 pub type Callback<T> = Rc<dyn Fn(&mut App, &T)>;
 
 pub struct Emitter<T: ?Sized> {
-    listeners: Vec<(ListenerId, bool, Callback<T>)>,
+    listeners: Vec<(ListenerId, Callback<T>)>,
     next_id: ListenerId,
 }
 
@@ -22,37 +22,19 @@ impl<T: ?Sized> Default for Emitter<T> {
 
 impl<T: ?Sized + 'static> Emitter<T> {
     pub fn on(&mut self, f: impl Fn(&mut App, &T) + 'static) -> ListenerId {
-        self.add(Rc::new(f), false)
-    }
-
-    pub fn once(&mut self, f: impl Fn(&mut App, &T) + 'static) -> ListenerId {
-        self.add(Rc::new(f), true)
-    }
-
-    fn add(&mut self, cb: Callback<T>, once: bool) -> ListenerId {
         let id = self.next_id;
         self.next_id += 1;
-        self.listeners.push((id, once, cb));
+        self.listeners.push((id, Rc::new(f)));
         id
     }
 
     pub fn off(&mut self, id: ListenerId) {
-        self.listeners.retain(|(i, _, _)| *i != id);
+        self.listeners.retain(|(i, _)| *i != id);
     }
 
-    pub fn clear(&mut self) {
-        self.listeners.clear();
-    }
-
-    pub fn len(&self) -> usize {
-        self.listeners.len()
-    }
-
-    /// Snapshot of listeners for an emit; once listeners are removed.
-    pub fn take_for_emit(&mut self) -> Vec<Callback<T>> {
-        let cbs = self.listeners.iter().map(|(_, _, cb)| cb.clone()).collect();
-        self.listeners.retain(|(_, once, _)| !once);
-        cbs
+    /// Snapshot of the listeners for an emit (listeners may change the emitter)
+    pub fn take_for_emit(&self) -> Vec<Callback<T>> {
+        self.listeners.iter().map(|(_, cb)| cb.clone()).collect()
     }
 }
 

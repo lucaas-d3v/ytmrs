@@ -152,7 +152,6 @@ pub struct LastFm {
     session_key: Option<String>,
     state_listener: Option<ListenerId>,
     signal_listener: Option<ListenerId>,
-    ipc_registered: bool,
     current_video_id: Option<String>,
     scrobble_time_required: i64,
     accumulated_playback_time: i64,
@@ -199,10 +198,6 @@ fn on_enabled(app: &mut App) -> anyhow::Result<()> {
     });
     app.integrations.last_fm.signal_listener = Some(id);
 
-    if !app.integrations.last_fm.ipc_registered {
-        app.integrations.last_fm.ipc_registered = true;
-        app.ipc.on("lastfm:authenticate", |app, _, _| authenticate_step(app));
-    }
     Ok(())
 }
 
@@ -215,7 +210,8 @@ fn on_disabled(app: &mut App) {
     }
 }
 
-fn authenticate_step(app: &mut App) {
+/// Settings "Authorize Last.fm in browser" / "Finish Last.fm authentication"
+pub fn authenticate_step(app: &mut App) {
     if !app.integration_manager.is_enabled("LastFM") {
         return;
     }
@@ -230,7 +226,7 @@ fn authenticate_step(app: &mut App) {
                     let url = format!("https://www.last.fm/api/auth/?api_key={}&token={}", urlencode(LASTFM_API_KEY.unwrap_or("")), urlencode(&token));
                     main.run(move |app| {
                         memory_store::set(app, "lastFMToken", token);
-                        let _ = open::that_detached(url);
+                        crate::util::open_external(&url);
                     });
                 }
                 Err(err) => log::error!("lastfm: failed to get token {err}"),

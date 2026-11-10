@@ -10,6 +10,7 @@ pub fn defaults(app_version: &str) -> Value {
         "general": {
             "disableHardwareAcceleration": false,
             "hideToTrayOnClose": false,
+            "lowMemoryMode": true,
             "showNotificationOnSongChange": false,
             "startOnBoot": false,
             "startMinimized": false

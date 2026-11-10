@@ -6,13 +6,24 @@ use crate::app::App;
 use crate::dialogs::{self, Kind, MessageBox};
 use crate::services::config_store;
 
-pub fn render_markdown(md: &str) -> String {
-    let mut options = comrak::Options::default();
-    options.extension.autolink = true;
-    options.extension.table = true;
-    options.extension.strikethrough = true;
-    options.render.r#unsafe = true;
-    comrak::markdown_to_html(md, &options)
+/// Opens a URL with the system handler (Electron `shell.openExternal`)
+pub fn open_external(target: &str) {
+    use std::process::Stdio;
+    for mut command in open::commands(target) {
+        crate::engine::scrub(&mut command);
+        command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        match command.spawn() {
+            Ok(mut child) => {
+                // Reap the launcher once it has handed the URL over
+                std::thread::spawn(move || {
+                    let _ = child.wait();
+                });
+                return;
+            }
+            Err(err) => log::debug!("Could not run {:?}: {err}", command.get_program()),
+        }
+    }
+    log::warn!("No program available to open {target}");
 }
 
 /// Settings migration from YTMDesktop v1 (only offered on the first run)

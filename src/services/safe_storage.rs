@@ -37,6 +37,7 @@ impl SafeStorage {
         }
     }
 
+    #[cfg(test)]
     pub fn with_key(key: [u8; 32]) -> Self {
         Self { key: Some(key) }
     }

@@ -1,11 +1,12 @@
-//! Tray icon + context menu (index.ts "Tray creation" region)
+//! Tray icon + context menu (index.ts "Tray creation" region), StatusNotifierItem via ksni
 
-use muda::{Menu, MenuItem, PredefinedMenuItem};
+use tray_icon::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 use crate::app::App;
 use crate::services::protected_api::remote_execute;
 use crate::shared::types::TrayIconStyle;
+use crate::ui::{main_window, miniplayer};
 
 pub struct Tray {
     icon: TrayIcon,
@@ -14,17 +15,11 @@ pub struct Tray {
 }
 
 fn tray_icon_file_name(app: &App) -> &'static str {
-    if cfg!(windows) {
-        return "ytmrs.png";
-    }
-    if cfg!(target_os = "macos") {
-        return "trayTemplate@2x.png";
-    }
     let style = TrayIconStyle::from_i64(app.config_store.get("appearance.trayIconStyle").as_i64().unwrap_or(0));
     let white = match style {
         TrayIconStyle::White => true,
         TrayIconStyle::Black => false,
-        TrayIconStyle::Auto => app.window_manager.get("Main").map(|w| w.window.theme() == tao::window::Theme::Dark).unwrap_or(true),
+        TrayIconStyle::Auto => app.ui.dark_theme,
     };
     if white {
         "ytmrs_white.png"
@@ -34,7 +29,7 @@ fn tray_icon_file_name(app: &App) -> &'static str {
 }
 
 fn load_icon(file: &str) -> Option<Icon> {
-    let (rgba, w, h) = crate::assets::decode_png(crate::assets::icon_bytes(file)?)?;
+    let (rgba, w, h) = crate::assets::icon_rgba(file, 64)?;
     Icon::from_rgba(rgba, w, h).ok()
 }
 
@@ -49,15 +44,13 @@ pub fn create_tray(app: &mut App) {
     let _ = menu.append_items(&[&title, &PredefinedMenuItem::separator(), &show_hide, &play_pause, &previous, &next, &PredefinedMenuItem::separator(), &quit]);
 
     app.menu_actions.insert("tray:showHide".into(), Box::new(|app| {
-        if app.window_manager.has_window("Miniplayer") {
+        if miniplayer::is_open(app) {
             // Closing the miniplayer automatically shows and focuses the main window
-            crate::services::window_manager::close_window(app, "Miniplayer");
-            return;
-        }
-        if app.window_manager.is_visible("Main") {
-            app.window_manager.hide("Main");
+            miniplayer::close(app);
+        } else if main_window::is_visible(app) {
+            main_window::hide(app);
         } else {
-            app.window_manager.show_and_focus("Main");
+            main_window::show_and_focus(app);
         }
     }));
     app.menu_actions.insert("tray:playPause".into(), Box::new(|app| remote_execute(app, "playPause", vec![])));
@@ -68,14 +61,7 @@ pub fn create_tray(app: &mut App) {
     let file = tray_icon_file_name(app).to_string();
     let mut builder = TrayIconBuilder::new().with_id("ytmrs").with_menu(Box::new(menu.clone())).with_tooltip("YtmRs").with_title("YtmRs").with_menu_on_left_click(false);
     if let Some(icon) = load_icon(&file) {
-        #[cfg(target_os = "macos")]
-        {
-            builder = builder.with_icon_templated(icon);
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            builder = builder.with_icon(icon);
-        }
+        builder = builder.with_icon(icon);
     }
     match builder.build() {
         Ok(icon) => {
@@ -86,7 +72,7 @@ pub fn create_tray(app: &mut App) {
     }
 }
 
-/// nativeTheme "updated" / tray style change
+/// System color scheme or tray style changed
 pub fn update_icon(app: &mut App) {
     let file = tray_icon_file_name(app).to_string();
     if let Some(tray) = app.ui.tray.as_mut() {
@@ -101,6 +87,10 @@ pub fn update_icon(app: &mut App) {
 
 pub fn handle_tray_event(app: &mut App, event: TrayIconEvent) {
     if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
-        app.window_manager.show_and_focus("Main");
+        if miniplayer::is_open(app) {
+            miniplayer::close(app);
+        } else {
+            main_window::show_and_focus(app);
+        }
     }
 }

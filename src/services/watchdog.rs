@@ -52,7 +52,7 @@ pub fn install_panic_hook() {
         }
         let result = crate::dialogs::show_message_box_sync("Error", "YtmRs Crashed", &dialog_message, crate::dialogs::Kind::Error, &buttons);
         if result == 0 {
-            crate::clipboard::write_text_blocking(&format!("YtmRs Crashed\n\n{dialog_message}"));
+            crate::clipboard::write_text(&format!("YtmRs Crashed\n\n{dialog_message}"));
         }
         if result == 0 || result == 1 {
             std::process::exit(1);

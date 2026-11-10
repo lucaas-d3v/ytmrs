@@ -102,7 +102,7 @@ pub fn handle_command(app: &mut App, command: MediaCommand) {
         MediaCommand::Loop(mode) => remote_execute(app, "repeatMode", vec![Value::from(mode)]),
         MediaCommand::Shuffle => remote_execute(app, "shuffle", vec![]),
         MediaCommand::Volume(volume) => remote_execute(app, "setVolume", vec![Value::from((volume * 100.0).round())]),
-        MediaCommand::Raise => app.window_manager.show_and_focus("Main"),
+        MediaCommand::Raise => crate::ui::main_window::show_and_focus(app),
     }
 }
 

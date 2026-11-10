@@ -40,8 +40,8 @@ fn on_enabled(app: &mut App) {
             if !app.integration_manager.is_enabled("VolumeRatio") {
                 return;
             }
-            execute_script(app, &crate::assets::web_text("ytmview/volume-ratio/enable.js"));
-            execute_script(app, &crate::assets::web_text("ytmview/volume-ratio/forceupdatevolume.js"));
+            execute_script(app, &crate::assets::ytm_script("volume-ratio/enable.js"));
+            execute_script(app, &crate::assets::ytm_script("volume-ratio/forceupdatevolume.js"));
         });
     }
 }
@@ -53,8 +53,8 @@ fn on_disabled(app: &mut App) {
     if app.integrations.volume_ratio.injected {
         app.integrations.volume_ratio.injected = false;
         ytm_view_manager::when_ready(app, |app| {
-            execute_script(app, &crate::assets::web_text("ytmview/volume-ratio/disable.js"));
-            execute_script(app, &crate::assets::web_text("ytmview/volume-ratio/forceupdatevolume.js"));
+            execute_script(app, &crate::assets::ytm_script("volume-ratio/disable.js"));
+            execute_script(app, &crate::assets::ytm_script("volume-ratio/forceupdatevolume.js"));
         });
     }
 }

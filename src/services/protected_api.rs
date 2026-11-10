@@ -1,7 +1,7 @@
 //! Port of ProtectedAPIManager / ProtectedAPI.
 //!
 //! The original passes MessagePorts from the YTM main world to the main process.
-//! Here the YTM view talks through the IPC bridge with the same op codes:
+//! Here the YouTube Music page talks through the IPC bridge with the same op codes:
 //! ProvideAPIPort(0), Message(1), Invoke(2), InvokeResponse(3).
 
 use std::collections::HashMap;
@@ -13,11 +13,9 @@ use tokio::sync::oneshot;
 use crate::app::App;
 use crate::events::{Emitter, ListenerId};
 
-pub const YTM_VIEW: &str = "YTM";
 
 #[derive(Default)]
 pub struct ProtectedApi {
-    pub name: String,
     bound: bool,
     listeners: HashMap<String, Emitter<Vec<Value>>>,
     waiting_invokes: HashMap<String, oneshot::Sender<Vec<Value>>>,
@@ -33,7 +31,7 @@ impl ProtectedApiManager {
     pub fn create_or_get_api(&mut self, name: &str) -> &mut ProtectedApi {
         if !self.apis.contains_key(name) {
             log::info!("protectedapi: api '{name}' created");
-            self.apis.insert(name.to_string(), ProtectedApi { name: name.to_string(), ..Default::default() });
+            self.apis.insert(name.to_string(), ProtectedApi::default());
         }
         self.apis.get_mut(name).unwrap()
     }
@@ -42,11 +40,6 @@ impl ProtectedApiManager {
         self.create_or_get_api(api).listeners.entry(message.to_string()).or_default().on(f)
     }
 
-    pub fn off(&mut self, api: &str, message: &str, id: ListenerId) {
-        if let Some(e) = self.apis.get_mut(api).and_then(|a| a.listeners.get_mut(message)) {
-            e.off(id);
-        }
-    }
 
     /// Port closed (view navigated / reloaded / crashed)
     pub fn unbind_all(&mut self) {
@@ -67,7 +60,7 @@ pub fn post_message(app: &mut App, api: &str, name: &str, args: Vec<Value>) {
         return;
     }
     let packet = json!({ "op": 1, "api": api, "name": name, "args": args });
-    app.window_manager.eval_view(YTM_VIEW, &format!("window.__ytmdProtectedApi&&window.__ytmdProtectedApi._receive({packet})"));
+    crate::services::ytm_view_manager::eval_js(app, &format!("window.__ytmdProtectedApi&&window.__ytmdProtectedApi._receive({packet})"));
 }
 
 /// RemoteControl "execute" shortcut used everywhere
@@ -88,7 +81,7 @@ pub fn invoke_message(app: &mut App, api: &str, name: &str, args: Vec<Value>) ->
     };
     if bound {
         let packet = json!({ "op": 2, "api": api, "id": id, "name": name, "args": args });
-        app.window_manager.eval_view(YTM_VIEW, &format!("window.__ytmdProtectedApi&&window.__ytmdProtectedApi._receive({packet})"));
+        crate::services::ytm_view_manager::eval_js(app, &format!("window.__ytmdProtectedApi&&window.__ytmdProtectedApi._receive({packet})"));
     }
     let main = app.main.clone();
     let api = api.to_string();
@@ -108,10 +101,7 @@ pub fn invoke_message(app: &mut App, api: &str, name: &str, args: Vec<Value>) ->
 }
 
 pub fn on_initialized(app: &mut App) {
-    app.ipc.on("protectedApi:bindPort", |app, event, _| {
-        if !is_ytm_view(event) {
-            return;
-        }
+    app.ipc.on("protectedApi:bindPort", |app, _| {
         // Reset the ports on all APIs as when setting the main port the other ports are no longer valid
         for (name, api) in app.protected_api.apis.iter_mut() {
             log::info!("protectedapi: unbinding api '{name}' port");
@@ -120,8 +110,8 @@ pub fn on_initialized(app: &mut App) {
         app.protected_api.main_bound = true;
         log::info!("protectedapi: main port bound");
     });
-    app.ipc.on("protectedApi:providePort", |app, event, args| {
-        if !is_ytm_view(event) || !app.protected_api.main_bound {
+    app.ipc.on("protectedApi:providePort", |app, args| {
+        if !app.protected_api.main_bound {
             return;
         }
         if let Some(name) = args.first().and_then(|v| v.as_str()) {
@@ -130,10 +120,7 @@ pub fn on_initialized(app: &mut App) {
             log::info!("protectedapi: api '{name}' port bound");
         }
     });
-    app.ipc.on("protectedApi:message", |app, event, args| {
-        if !is_ytm_view(event) {
-            return;
-        }
+    app.ipc.on("protectedApi:message", |app, args| {
         let (Some(api), Some(name)) = (args.first().and_then(|v| v.as_str()), args.get(1).and_then(|v| v.as_str())) else { return };
         let msg_args = args.get(2).and_then(|v| v.as_array()).cloned().unwrap_or_default();
         let callbacks = match app.protected_api.apis.get_mut(api) {
@@ -142,10 +129,7 @@ pub fn on_initialized(app: &mut App) {
         };
         crate::events::run_callbacks(app, callbacks, &msg_args);
     });
-    app.ipc.on("protectedApi:invokeResponse", |app, event, args| {
-        if !is_ytm_view(event) {
-            return;
-        }
+    app.ipc.on("protectedApi:invokeResponse", |app, args| {
         let (Some(api), Some(id)) = (args.first().and_then(|v| v.as_str()), args.get(1).and_then(|v| v.as_str())) else { return };
         let response = args.get(2).and_then(|v| v.as_array()).cloned().unwrap_or_default();
         if let Some(tx) = app.protected_api.apis.get_mut(api).and_then(|a| a.waiting_invokes.remove(id)) {
@@ -153,8 +137,4 @@ pub fn on_initialized(app: &mut App) {
         }
     });
     log::info!("ProtectedAPIManager initialized");
-}
-
-fn is_ytm_view(event: &crate::ipc::IpcEvent) -> bool {
-    event.owner == crate::ipc::WebviewOwner::View(YTM_VIEW.to_string())
 }

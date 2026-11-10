@@ -16,12 +16,6 @@ pub struct StateManager {
     initialized: bool,
 }
 
-impl StateManager {
-    pub fn initialized(&self) -> bool {
-        self.initialized
-    }
-}
-
 pub fn on_initialized(app: &mut App) {
     if app.state_manager.initialized {
         panic!("StateManager is already initialized!");
