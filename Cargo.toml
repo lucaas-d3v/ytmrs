@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.94"
 description = "YtmRs - YouTube Music desktop app written in Rust (port of YTMDesktop)"
 license = "GPL-3.0-only"
-authors = ["NovusTheory <novustheory@gmail.com>"]
+authors = ["lucaas-d3v"]
 exclude = ["ytmdesktop/"]
 build = "build.rs"
 
