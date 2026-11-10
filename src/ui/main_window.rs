@@ -210,6 +210,16 @@ pub fn create(app: &mut App) {
     });
 
     overlay.show_all();
+    // A revealer that is not revealed still covers the page and swallows its clicks:
+    // hide it once the fade out ends
+    for revealer in [&loading, &unresponsive] {
+        revealer.connect_child_revealed_notify(|r| {
+            if !r.is_child_revealed() && !r.reveals_child() {
+                r.hide();
+            }
+        });
+    }
+    unresponsive.hide();
     error_box.hide();
     header.show_all();
     app.ui.main = Some(MainWindow {
@@ -364,8 +374,12 @@ pub fn update_loading(app: &mut App) {
     let unresponsive = app.memory_store.get_bool("ytmViewUnresponsive");
     let load_error = if status == YTMViewStatus::LoadFailed { app.ytm_view_manager.load_error.clone() } else { None };
     let Some(w) = app.ui.main.as_ref() else { return };
-    w.loading.set_reveal_child(status != YTMViewStatus::Ready);
-    w.unresponsive.set_reveal_child(unresponsive);
+    for (revealer, reveal) in [(&w.loading, status != YTMViewStatus::Ready), (&w.unresponsive, unresponsive)] {
+        if reveal {
+            revealer.show();
+        }
+        revealer.set_reveal_child(reveal);
+    }
     w.status.set_text(match status {
         YTMViewStatus::Loading => "Loading YouTube Music...",
         YTMViewStatus::Hooking => "Waiting for YtmRs hooks...",

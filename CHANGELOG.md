@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.1
+
+- Fixed: the YouTube Music page did not react to clicks (the hidden loading overlay swallowed them).
+
 ## 2.2.0
 
 - The whole interface is now native GTK: main window, settings, miniplayer, lyrics, companion authorization and changelog. The only web content left is the YouTube Music page itself.
